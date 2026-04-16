@@ -415,22 +415,6 @@
 </head>
 <body>
 
-<!-- CONFIG MODAL -->
-<div id="config-modal">
-  <div class="modal-box">
-    <h2>Connect to Google Sheet</h2>
-    <p>Paste your Google Apps Script Web App URL below. This connects all devices to the same live data.</p>
-    <div class="form-row">
-      <label>Apps Script URL</label>
-      <div class="url-input-wrap">
-        <input type="url" id="script-url-input" placeholder="https://script.google.com/macros/s/..." />
-        <button class="paste-btn" onclick="pasteUrl()">Paste</button>
-      </div>
-    </div>
-    <button class="btn-main" onclick="saveUrl()" style="margin-top: 8px;">Save & Continue</button>
-  </div>
-</div>
-
 <!-- SETUP SCREEN -->
 <div id="setup-screen">
   <div class="logo">Incident Response Game</div>
@@ -456,10 +440,6 @@
   </div>
 
   <button class="btn-main" id="enter-btn" onclick="enterGame()" style="display:none;">Enter Game →</button>
-
-  <div class="config-hint" onclick="openConfig()">
-    ⚙ Google Sheet URL: <span id="url-status">Not configured — tap to set up</span>
-  </div>
 </div>
 
 <!-- COORDINATOR VIEW -->
@@ -570,7 +550,7 @@
 
 <script>
   // ===================== CONFIG =====================
-  let SCRIPT_URL = localStorage.getItem('ir_script_url') || '';
+  const SCRIPT_URL = "https://script.google.com/macros/s/XXXX/exec";
   let currentRole = null;
   let playerName = '';
   let gameTimer = null;
@@ -580,6 +560,7 @@
   let lastSolvedScenarioTime = null;
   let hasSolved = false;
   let currentScenario = null;
+  let currentScenarioIndex = 0;
 
   const PRESETS = [
     { title: "Database connection exhausted", desc: "Checkout page showing 500 errors. DB connection pool is maxed out. Query logs show timeouts. Users cannot complete purchases. Started 5 minutes ago.", priority: "P1" },
@@ -591,39 +572,6 @@
   ];
 
   // ===================== SETUP =====================
-  function updateUrlStatus() {
-    const el = document.getElementById('url-status');
-    if (SCRIPT_URL) {
-      el.textContent = '✓ Connected';
-      el.style.color = 'var(--green)';
-    } else {
-      el.textContent = 'Not configured — tap to set up';
-      el.style.color = '';
-    }
-  }
-  updateUrlStatus();
-
-  function openConfig() {
-    document.getElementById('script-url-input').value = SCRIPT_URL;
-    document.getElementById('config-modal').classList.add('open');
-  }
-
-  async function pasteUrl() {
-    try {
-      const text = await navigator.clipboard.readText();
-      document.getElementById('script-url-input').value = text;
-    } catch(e) {}
-  }
-
-  function saveUrl() {
-    const url = document.getElementById('script-url-input').value.trim();
-    if (!url) { alert('Please enter the URL'); return; }
-    SCRIPT_URL = url;
-    localStorage.setItem('ir_script_url', url);
-    document.getElementById('config-modal').classList.remove('open');
-    updateUrlStatus();
-  }
-
   function selectRole(role) {
     currentRole = role;
     document.getElementById('role-coord').classList.toggle('selected', role === 'coordinator');
@@ -633,7 +581,6 @@
   }
 
   function enterGame() {
-    if (!SCRIPT_URL) { openConfig(); return; }
     if (currentRole === 'participant') {
       playerName = document.getElementById('player-name').value.trim();
       if (!playerName) { alert('Please enter your name'); return; }
@@ -651,6 +598,7 @@
       document.getElementById('coordinator-view').style.display = 'block';
       renderPresets();
       fetchLeaderboard('ALL');
+      setInterval(() => fetchLeaderboard(currentViewingLb), 3000);
     } else {
       document.getElementById('participant-view').style.display = 'block';
       document.getElementById('player-display').textContent = '▸ ' + playerName;
@@ -668,13 +616,14 @@
 
   // ===================== API =====================
   async function apiCall(params) {
-    if (!SCRIPT_URL) return null;
     try {
-      const url = SCRIPT_URL + '?' + new URLSearchParams(params).toString();
-      const res = await fetch(url);
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        body: new URLSearchParams(params)
+      });
       return await res.json();
-    } catch(e) {
-      console.error('API error:', e);
+    } catch (e) {
+      console.error("API error:", e);
       return null;
     }
   }
@@ -822,6 +771,7 @@
   }
 
   function showGameScreen(data) {
+    currentScenarioIndex = data.scenarioIndex || 0;
     document.getElementById('wait-screen').style.display = 'none';
     document.getElementById('solved-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
@@ -870,7 +820,7 @@
       action: 'submit',
       name: playerName,
       time: elapsedSeconds,
-      scenarioIndex: currentScenario ? currentScenario.scenarioIndex : 0,
+      scenarioIndex: currentScenarioIndex,
       solution: solution
     });
 
