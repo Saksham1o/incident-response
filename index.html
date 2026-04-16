@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident Response Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c26;
+    --border: rgba(255,255,255,0.08);
+    --text: #f0f0f5;
+    --muted: #6b6b7e;
+    --accent: #7c6fcd;
+    --accent2: #4fc3a1;
+    --red: #ff4757;
+    --amber: #ffa502;
+    --green: #2ed573;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+  /* SETUP SCREEN */
+  #setup-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: radial-gradient(ellipse at 50% 0%, rgba(124,111,205,0.15) 0%, transparent 60%);
+  }
+  .logo {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2rem;
+  }
+  .big-title {
+    font-size: clamp(28px, 7vw, 52px);
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+  }
+  .big-title span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 14px; text-align: center; margin-bottom: 3rem; }
+  .role-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 2rem;
+  }
+  .role-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .role-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .role-card.selected { border-color: var(--accent); background: rgba(124,111,205,0.12); }
+  .role-icon { font-size: 28px; margin-bottom: 8px; }
+  .role-name { font-size: 15px; font-weight: 600; }
+  .role-desc { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .input-group { width: 100%; max-width: 480px; margin-bottom: 1rem; }
+  .input-group label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 8px; }
+  .input-group input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-group input:focus { border-color: var(--accent); }
+  .btn-main {
+    width: 100%;
+    max-width: 480px;
+    padding: 16px;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: 1px;
+  }
+  .btn-main:hover { opacity: 0.85; }
+  .btn-main:active { transform: scale(0.98); }
+  .config-hint {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 1.5rem;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-radius: 8px;
+    max-width: 480px;
+    width: 100%;
+    cursor: pointer;
+  }
+  .config-hint span { color: var(--accent); }
+
+  /* COORDINATOR VIEW */
+  #coordinator-view { display: none; min-height: 100vh; padding: 1.5rem; max-width: 700px; margin: 0 auto; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+  .tag { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; background: rgba(124,111,205,0.2); color: var(--accent); padding: 4px 12px; border-radius: 20px; }
+  .section-title { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem; margin-bottom: 1rem; }
+  .form-row { margin-bottom: 1rem; }
+  .form-row label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
+  .form-row input, .form-row textarea, .form-row select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+  }
+  .form-row textarea { min-height: 90px; resize: vertical; }
+  .form-row select option { background: var(--surface2); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn-launch {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent), #9d6fcd);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-launch:hover { opacity: 0.85; }
+  .btn-stop {
+    width: 100%;
+    padding: 14px;
+    background: rgba(255,71,87,0.15);
+    border: 1px solid rgba(255,71,87,0.3);
+    border-radius: 10px;
+    color: var(--red);
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    font-size: 13px;
+  }
+  .status-active { background: rgba(46,213,115,0.1); border: 1px solid rgba(46,213,115,0.2); color: var(--green); }
+  .status-idle { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .dot.pulse { animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .lb-item {
+    border-bottom: 1px solid var(--border);
+    padding: 10px 0;
+  }
+  .lb-item:last-child { border-bottom: none; }
+  .lb-entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .lb-solution {
+    margin-top: 10px;
+    padding: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: rgba(240,240,245,0.85);
+    display: none;
+    white-space: pre-wrap;
+  }
+  .lb-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .lb-toggle:hover { border-color: var(--accent); background: rgba(124,111,205,0.1); }
+  .lb-rank { font-family: var(--mono); font-size: 18px; font-weight: 700; min-width: 32px; }
+  .lb-rank.gold { color: #ffd700; }
+  .lb-rank.silver { color: #c0c0c0; }
+  .lb-rank.bronze { color: #cd7f32; }
+  .lb-name { flex: 1; font-size: 15px; font-weight: 600; }
+  .lb-time { font-family: var(--mono); font-size: 14px; color: var(--accent2); }
+  .preset-btn {
+    display: inline-block;
+    padding: 6px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    margin: 4px;
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* PARTICIPANT VIEW */
+  #participant-view { display: none; min-height: 100vh; }
+  .wait-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+  }
+  .waiting-animation {
+    display: flex;
+    gap: 6px;
+    margin: 2rem 0;
+  }
+  .waiting-animation span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: bounce 1.4s infinite;
+  }
+  .waiting-animation span:nth-child(2) { animation-delay: 0.2s; }
+  .waiting-animation span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,80%,100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+
+  .game-screen {
+    min-height: 100vh;
+    padding: 1.5rem;
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .priority-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
+  }
+  .p1 { background: rgba(255,71,87,0.15); border: 1px solid rgba(255,71,87,0.3); color: var(--red); }
+  .p2 { background: rgba(255,165,2,0.15); border: 1px solid rgba(255,165,2,0.3); color: var(--amber); }
+  .p3 { background: rgba(46,213,115,0.15); border: 1px solid rgba(46,213,115,0.3); color: var(--green); }
+  .incident-title { font-size: 24px; font-weight: 800; line-height: 1.2; margin-bottom: 1rem; }
+  .incident-desc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 12px 12px 0;
+    padding: 1.25rem;
+    font-size: 14px;
+    line-height: 1.7;
+    color: rgba(240,240,245,0.85);
+    margin-bottom: 1.5rem;
+    flex: 1;
+  }
+  .timer-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  .live-timer {
+    font-family: var(--mono);
+    font-size: 52px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .live-timer.danger { color: var(--red); }
+  .timer-sub { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+  .btn-solved {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, var(--accent2), #1d9e75);
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+  }
+  .btn-solved:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-solved:active { transform: scale(0.98); }
+  .btn-solved:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  #solutionInput {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    font-size: 15px;
+    margin-bottom: 15px;
+    outline: none;
+  }
+
+  .solved-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+  }
+  .big-check { font-size: 72px; margin-bottom: 1rem; }
+  .solved-time { font-family: var(--mono); font-size: 48px; font-weight: 700; color: var(--accent2); }
+  .solved-label { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+
+  .btn-sm {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Config Modal */
+  #config-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  #config-modal.open { display: flex; }
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 480px;
+  }
+  .modal-box h2 { font-size: 20px; margin-bottom: 0.5rem; }
+  .modal-box p { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
+  .url-input-wrap { position: relative; }
+  .url-input-wrap input { padding-right: 80px; font-family: var(--mono); font-size: 12px; }
+  .paste-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 4px 10px;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: var(--sans);
+  }
+  .empty-state { text-align: center; padding: 2rem; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- CONFIG MODAL -->
+<div id="config-modal">
+  <div class="modal-box">
+    <h2>Connect to Google Sheet</h2>
+    <p>Paste your Google Apps Script Web App URL below. This connects all devices to the same live data.</p>
+    <div class="form-row">
+      <label>Apps Script URL</label>
+      <div class="url-input-wrap">
+        <input type="url" id="script-url-input" placeholder="https://script.google.com/macros/s/..." />
+        <button class="paste-btn" onclick="pasteUrl()">Paste</button>
+      </div>
+    </div>
+    <button class="btn-main" onclick="saveUrl()" style="margin-top: 8px;">Save & Continue</button>
+  </div>
+</div>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen">
+  <div class="logo">Incident Response Game</div>
+  <h1 class="big-title">Who resolves<br><span>the fastest?</span></h1>
+  <p class="subtitle">Real-time incident simulation for teams</p>
+
+  <div class="role-cards">
+    <div class="role-card" id="role-coord" onclick="selectRole('coordinator')">
+      <div class="role-icon">🎯</div>
+      <div class="role-name">Coordinator</div>
+      <div class="role-desc">Launch scenarios, track winners</div>
+    </div>
+    <div class="role-card" id="role-part" onclick="selectRole('participant')">
+      <div class="role-icon">⚡</div>
+      <div class="role-name">Participant</div>
+      <div class="role-desc">Solve incidents, beat the clock</div>
+    </div>
+  </div>
+
+  <div class="input-group" id="name-group" style="display:none;">
+    <label>Your name</label>
+    <input type="text" id="player-name" placeholder="Enter your name..." />
+  </div>
+
+  <button class="btn-main" id="enter-btn" onclick="enterGame()" style="display:none;">Enter Game →</button>
+
+  <div class="config-hint" onclick="openConfig()">
+    ⚙ Google Sheet URL: <span id="url-status">Not configured — tap to set up</span>
+  </div>
+</div>
+
+<!-- COORDINATOR VIEW -->
+<div id="coordinator-view">
+  <div class="top-bar">
+    <div class="tag">Coordinator</div>
+    <button class="btn-sm" onclick="goHome()">← Exit</button>
+  </div>
+
+  <div id="coord-status-bar" class="status-bar status-idle">
+    <div class="dot"></div>
+    <span id="status-text">No active scenario</span>
+  </div>
+
+  <!-- Launch Scenario -->
+  <div class="section-title">Launch Scenario</div>
+  <div class="card">
+    <div class="form-row">
+      <label>Incident Title</label>
+      <input type="text" id="c-title" placeholder="e.g. Production DB down" />
+    </div>
+    <div class="form-row">
+      <label>Description (participants will see this)</label>
+      <textarea id="c-desc" placeholder="Describe the incident in detail — what's happening, what errors are showing, what's affected..."></textarea>
+    </div>
+    <div class="row2">
+      <div class="form-row">
+        <label>Priority</label>
+        <select id="c-priority">
+          <option value="P1">P1 — Critical</option>
+          <option value="P2" selected>P2 — High</option>
+          <option value="P3">P3 — Medium</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-launch" onclick="launchScenario()">🚀 Launch Scenario</button>
+  </div>
+
+  <!-- Presets -->
+  <div class="section-title">Quick Presets</div>
+  <div class="card" id="presets-container"></div>
+
+  <!-- Stop -->
+  <div style="margin-top: 1rem;" id="stop-section" style="display:none;">
+    <button class="btn-stop" onclick="stopScenario()">⏹ Stop & Reset</button>
+  </div>
+
+  <!-- Leaderboard -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 1rem;">
+    <div class="section-title" style="margin: 0;">Live Leaderboard</div>
+  </div>
+  <div style="display: flex; gap: 6px; margin-bottom: 1rem;" id="lb-buttons">
+    <button class="preset-btn" onclick="fetchLeaderboard(0)">1</button>
+    <button class="preset-btn" onclick="fetchLeaderboard(1)">2</button>
+    <button class="preset-btn" onclick="fetchLeaderboard(2)">3</button>
+    <button class="preset-btn" onclick="fetchLeaderboard(3)">4</button>
+    <button class="preset-btn" onclick="fetchLeaderboard(4)">5</button>
+    <button class="preset-btn" onclick="fetchLeaderboard(5)">6</button>
+    <button class="preset-btn" onclick="fetchLeaderboard('ALL')">ALL</button>
+  </div>
+  <div class="card" id="leaderboard-container">
+    <div class="empty-state">Select a scenario to view results</div>
+  </div>
+</div>
+
+<!-- PARTICIPANT VIEW -->
+<div id="participant-view">
+  <!-- Waiting -->
+  <div class="wait-screen" id="wait-screen">
+    <div class="tag">Participant</div>
+    <div style="margin-top: 2rem;">
+      <div class="waiting-animation">
+        <span></span><span></span><span></span>
+      </div>
+      <p style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Waiting for scenario...</p>
+      <p style="color: var(--muted); font-size: 14px;">Coordinator will launch soon. Stay ready.</p>
+    </div>
+    <div style="margin-top: 3rem; font-family: var(--mono); font-size: 13px; color: var(--muted);" id="player-display"></div>
+  </div>
+
+  <!-- Active Game -->
+  <div class="game-screen" id="game-screen" style="display:none;">
+    <div class="top-bar" style="margin-bottom: 1rem;">
+      <div class="tag" id="p-participant-tag">Participant</div>
+      <div style="font-family: var(--mono); font-size: 12px; color: var(--muted);" id="p-name-tag"></div>
+    </div>
+    <div class="priority-badge" id="p-priority">P2</div>
+    <div class="incident-title" id="p-title">Incident Title</div>
+    <div class="incident-desc" id="p-desc">Description</div>
+    <div class="timer-block">
+      <div class="live-timer" id="p-timer">00:00</div>
+      <div class="timer-sub">Time elapsed</div>
+    </div>
+    <input id="solutionInput" placeholder="Describe how you resolved the incident..." />
+    <button class="btn-solved" id="solve-btn" onclick="markSolved()">✓ SOLVED</button>
+  </div>
+
+  <!-- Solved Screen -->
+  <div class="solved-screen" id="solved-screen" style="display:none;">
+    <div class="big-check">✅</div>
+    <p style="font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem;">You solved it in</p>
+    <div class="solved-time" id="solved-time-display">00:00</div>
+    <div class="solved-label">minutes : seconds</div>
+    <p style="margin-top: 2rem; color: var(--muted); font-size: 13px;">Your time has been recorded. Check the leaderboard with coordinator!</p>
+    <button class="btn-sm" style="margin-top: 1.5rem;" onclick="waitForNext()">Wait for next round</button>
+  </div>
+</div>
+
+<script>
+  // ===================== CONFIG =====================
+  let SCRIPT_URL = localStorage.getItem('ir_script_url') || '';
+  let currentRole = null;
+  let playerName = '';
+  let gameTimer = null;
+  let pollTimer = null;
+  let elapsedSeconds = 0;
+  let scenarioStartTime = null;
+  let lastSolvedScenarioTime = null;
+  let hasSolved = false;
+  let currentScenario = null;
+
+  const PRESETS = [
+    { title: "Database connection exhausted", desc: "Checkout page showing 500 errors. DB connection pool is maxed out. Query logs show timeouts. Users cannot complete purchases. Started 5 minutes ago.", priority: "P1" },
+    { title: "SSL certificate expired", desc: "Users are seeing 'Not Secure' warnings. HTTPS is broken on the main domain. Certificate expired yesterday. Support tickets flooding in at 50/hour.", priority: "P2" },
+    { title: "Memory leak — OOM crash", desc: "App server restarting every 15 minutes. Memory spikes to 100% before each crash. No recent deployments. 40% of users getting errors.", priority: "P1" },
+    { title: "DDoS on login endpoint", desc: "Login page receiving 50,000 req/min from rotating IPs. Server load at 98%. Legitimate users cannot log in. Current WAF rules not catching it.", priority: "P1" },
+    { title: "Slow API response — 3rd party", desc: "API latency jumped from 200ms to 4 seconds. No infra changes on our end. Payment gateway seems slow too. Timeout errors appearing in logs.", priority: "P2" },
+    { title: "Accidental production delete", desc: "Developer ran wrong migration on production DB. ~3000 user records affected. Last backup is 4 hours old. Database restore or recovery needed.", priority: "P1" },
+  ];
+
+  // ===================== SETUP =====================
+  function updateUrlStatus() {
+    const el = document.getElementById('url-status');
+    if (SCRIPT_URL) {
+      el.textContent = '✓ Connected';
+      el.style.color = 'var(--green)';
+    } else {
+      el.textContent = 'Not configured — tap to set up';
+      el.style.color = '';
+    }
+  }
+  updateUrlStatus();
+
+  function openConfig() {
+    document.getElementById('script-url-input').value = SCRIPT_URL;
+    document.getElementById('config-modal').classList.add('open');
+  }
+
+  async function pasteUrl() {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById('script-url-input').value = text;
+    } catch(e) {}
+  }
+
+  function saveUrl() {
+    const url = document.getElementById('script-url-input').value.trim();
+    if (!url) { alert('Please enter the URL'); return; }
+    SCRIPT_URL = url;
+    localStorage.setItem('ir_script_url', url);
+    document.getElementById('config-modal').classList.remove('open');
+    updateUrlStatus();
+  }
+
+  function selectRole(role) {
+    currentRole = role;
+    document.getElementById('role-coord').classList.toggle('selected', role === 'coordinator');
+    document.getElementById('role-part').classList.toggle('selected', role === 'participant');
+    document.getElementById('name-group').style.display = role === 'participant' ? 'block' : 'none';
+    document.getElementById('enter-btn').style.display = 'block';
+  }
+
+  function enterGame() {
+    if (!SCRIPT_URL) { openConfig(); return; }
+    if (currentRole === 'participant') {
+      playerName = document.getElementById('player-name').value.trim();
+      if (!playerName) { alert('Please enter your name'); return; }
+    } else if (currentRole === 'coordinator') {
+      const savedPass = localStorage.getItem("coord_pass") || "admin123";
+      const pass = prompt("Enter coordinator password:");
+
+      if (pass !== savedPass) {
+        alert("Access denied");
+        return;
+      }
+    }
+    document.getElementById('setup-screen').style.display = 'none';
+    if (currentRole === 'coordinator') {
+      document.getElementById('coordinator-view').style.display = 'block';
+      renderPresets();
+      fetchLeaderboard('ALL');
+    } else {
+      document.getElementById('participant-view').style.display = 'block';
+      document.getElementById('player-display').textContent = '▸ ' + playerName;
+      startPolling();
+    }
+  }
+
+  function goHome() {
+    clearInterval(gameTimer);
+    clearInterval(pollTimer);
+    document.getElementById('coordinator-view').style.display = 'none';
+    document.getElementById('participant-view').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'flex';
+  }
+
+  // ===================== API =====================
+  async function apiCall(params) {
+    if (!SCRIPT_URL) return null;
+    try {
+      const url = SCRIPT_URL + '?' + new URLSearchParams(params).toString();
+      const res = await fetch(url);
+      return await res.json();
+    } catch(e) {
+      console.error('API error:', e);
+      return null;
+    }
+  }
+
+  // ===================== COORDINATOR =====================
+  let activeScenarioIndex = 0;
+
+  function renderPresets() {
+    const c = document.getElementById('presets-container');
+    c.innerHTML = '<div style="margin-bottom: 8px; font-size: 12px; color: var(--muted);">Click to fill form:</div>' +
+      PRESETS.map((p, i) => `<span class="preset-btn" onclick='fillPreset(${i})'>${i+1} - ${p.title}</span>`).join('');
+  }
+
+  function fillPreset(i) {
+    activeScenarioIndex = i;
+    document.getElementById('c-title').value = PRESETS[i].title;
+    document.getElementById('c-desc').value = PRESETS[i].desc;
+    document.getElementById('c-priority').value = PRESETS[i].priority;
+  }
+
+  async function launchScenario() {
+    const title = document.getElementById('c-title').value.trim();
+    const desc = document.getElementById('c-desc').value.trim();
+    const priority = document.getElementById('c-priority').value;
+    if (!title || !desc) { alert('Fill in title and description'); return; }
+
+    const res = await apiCall({ action: 'setScenario', scenarioIndex: activeScenarioIndex, title, description: desc, priority, active: 'true' });
+    if (res && res.success) {
+      setCoordStatus(true, title);
+      document.getElementById('stop-section').style.display = 'block';
+      alert('✅ Scenario ' + (activeScenarioIndex + 1) + ' launched!');
+      fetchLeaderboard(activeScenarioIndex);
+    } else {
+      alert('Error launching. Check your Script URL.');
+    }
+  }
+
+  async function stopScenario() {
+    if (!confirm('Stop scenario? (Data is retained on backend)')) return;
+    await apiCall({ action: 'stopScenario', scenarioIndex: activeScenarioIndex });
+    setCoordStatus(false, '');
+    document.getElementById('stop-section').style.display = 'none';
+  }
+
+  function setCoordStatus(active, title) {
+    const bar = document.getElementById('coord-status-bar');
+    const txt = document.getElementById('status-text');
+    const dot = bar.querySelector('.dot');
+    if (active) {
+      bar.className = 'status-bar status-active';
+      dot.classList.add('pulse');
+      txt.textContent = '🔴 LIVE: ' + title;
+    } else {
+      bar.className = 'status-bar status-idle';
+      dot.classList.remove('pulse');
+      txt.textContent = 'No active scenario';
+    }
+  }
+
+  let allLeaderboardEntries = [];
+  let currentViewingLb = 'ALL';
+
+  function toggleSolution(index) {
+    const el = document.getElementById('lb-sol-' + index);
+    if (el.style.display === 'block') {
+      el.style.display = 'none';
+    } else {
+      el.style.display = 'block';
+    }
+  }
+
+  async function fetchLeaderboard(targetIndex) {
+    currentViewingLb = targetIndex;
+    
+    // Highlight active button
+    document.querySelectorAll('#lb-buttons .preset-btn').forEach(btn => btn.style.borderColor = 'var(--border)');
+    if (targetIndex === 'ALL') {
+      document.querySelectorAll('#lb-buttons .preset-btn')[6].style.borderColor = 'var(--accent)';
+    } else {
+      document.querySelectorAll('#lb-buttons .preset-btn')[targetIndex].style.borderColor = 'var(--accent)';
+    }
+
+    const res = await apiCall({ action: 'getLeaderboard', scenarioIndex: targetIndex });
+    const c = document.getElementById('leaderboard-container');
+    
+    if (!res || !res.entries || !res.entries.length) {
+      c.innerHTML = '<div class="empty-state">No submissions here</div>';
+      return;
+    }
+    
+    const rankClass = (i) => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+    const fmt = (s) => String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+    
+    c.innerHTML = res.entries.map((e, i) => `
+      <div class="lb-item">
+        <div class="lb-entry">
+          ${targetIndex !== 'ALL' ? `<div class="lb-rank ${rankClass(i)}">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i+1)}</div>` : ''}
+          <div class="lb-name">
+            ${e.name} 
+            ${targetIndex === 'ALL' ? `<span style="font-size:10px; color:var(--muted); margin-left:6px;">(Round ${parseInt(e.scenarioIndex)+1})</span>` : ''}
+          </div>
+          <div class="lb-time">${fmt(e.time)}</div>
+          ${e.solution ? `<button class="lb-toggle" onclick="toggleSolution(${i})">View solution</button>` : ''}
+        </div>
+        ${e.solution ? `<div class="lb-solution" id="lb-sol-${i}">${e.solution}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  // ===================== PARTICIPANT =====================
+  function startPolling() {
+    pollScenario();
+    pollTimer = setInterval(pollScenario, 3000);
+  }
+
+  async function pollScenario() {
+    if (hasSolved) return;
+    const data = await apiCall({ action: 'getScenario' });
+    if (!data) return;
+
+    if (data.active && data.title) {
+      if (data.startTime === lastSolvedScenarioTime) {
+         // Already solved this specific scenario instance, keep waiting
+         return;
+      }
+      
+      if (!currentScenario || currentScenario.title !== data.title) {
+        currentScenario = data;
+        hasSolved = false;
+        showGameScreen(data);
+      }
+    } else {
+      if (currentScenario) {
+        currentScenario = null;
+        showWaitScreen();
+      }
+    }
+  }
+
+  function showWaitScreen() {
+    clearInterval(gameTimer);
+    document.getElementById('wait-screen').style.display = 'flex';
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('solved-screen').style.display = 'none';
+  }
+
+  function showGameScreen(data) {
+    document.getElementById('wait-screen').style.display = 'none';
+    document.getElementById('solved-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'flex';
+
+    document.getElementById('p-title').textContent = data.title;
+    document.getElementById('p-desc').textContent = data.description;
+    document.getElementById('p-name-tag').textContent = playerName;
+
+    const pbadge = document.getElementById('p-priority');
+    pbadge.textContent = data.priority + (data.priority === 'P1' ? ' — Critical' : data.priority === 'P2' ? ' — High' : ' — Medium');
+    pbadge.className = 'priority-badge ' + data.priority.toLowerCase();
+
+    document.getElementById('solve-btn').disabled = false;
+
+    // Calculate elapsed based on server start time
+    scenarioStartTime = data.startTime ? new Date(data.startTime) : new Date();
+    elapsedSeconds = Math.floor((new Date() - scenarioStartTime) / 1000);
+
+    clearInterval(gameTimer);
+    gameTimer = setInterval(() => {
+      elapsedSeconds++;
+      const el = document.getElementById('p-timer');
+      el.textContent = String(Math.floor(elapsedSeconds/60)).padStart(2,'0') + ':' + String(elapsedSeconds%60).padStart(2,'0');
+      el.className = 'live-timer' + (elapsedSeconds > 300 ? ' danger' : '');
+    }, 1000);
+  }
+
+  async function markSolved() {
+    if (hasSolved) return;
+
+    const solution = document.getElementById("solutionInput").value;
+    if (!solution.trim()) {
+      alert("Write your solution first");
+      return;
+    }
+
+    hasSolved = true;
+    if (currentScenario) {
+      lastSolvedScenarioTime = currentScenario.startTime;
+    }
+    
+    clearInterval(gameTimer);
+    document.getElementById('solve-btn').disabled = true;
+
+    const res = await apiCall({
+      action: 'submit',
+      name: playerName,
+      time: elapsedSeconds,
+      scenarioIndex: currentScenario ? currentScenario.scenarioIndex : 0,
+      solution: solution
+    });
+
+    const fmt = String(Math.floor(elapsedSeconds/60)).padStart(2,'0') + ':' + String(elapsedSeconds%60).padStart(2,'0');
+    document.getElementById('solved-time-display').textContent = fmt;
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('solved-screen').style.display = 'flex';
+  }
+
+  function waitForNext() {
+    hasSolved = false;
+    currentScenario = null;
+    document.getElementById("solutionInput").value = "";
+    showWaitScreen();
+  }
+</script>
+</body>
+</html>
